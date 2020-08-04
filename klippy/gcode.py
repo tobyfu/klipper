@@ -375,7 +375,13 @@ class GCodeParser:
         if web_request.get_method() != 'POST':
             raise web_request.error("Invalid Request Method")
         script = web_request.get('script')
-        self.run_script(script)
+        with self.mutex:
+            prev_respond_raw = self.respond_raw
+            self.respond_raw = web_request.send_partial
+            try:
+                self._process_commands(script.split('\n'), need_ack=False)
+            finally:
+                self.respond_raw = prev_respond_raw
     def run_script_from_command(self, script):
         self._process_commands(script.split('\n'), need_ack=False)
     def run_script(self, script):

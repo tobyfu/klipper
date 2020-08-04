@@ -45,7 +45,8 @@ class Sentinel:
 
 class WebRequest:
     error = WebRequestError
-    def __init__(self, base_request):
+    def __init__(self, sconn, base_request):
+        self.sconn = sconn
         self.id = base_request['id']
         self.path = base_request['path']
         self.method = base_request['method']
@@ -81,6 +82,12 @@ class WebRequest:
         if self.response is not None:
             raise WebRequestError("Multiple calls to send not allowed")
         self.response = data
+
+    def send_partial(self, data):
+        if self.response is not None:
+            raise WebRequestError("send_partial not allowed after send")
+        self.sconn.send({"params": {"data": data, "request_id": self.id},
+                         "method": "partial_response"})
 
     def finish(self):
         if self.response is None:
@@ -154,7 +161,7 @@ class ServerConnection:
             logging.debug(
                 "ServerConnection: Request received: %s" % (req))
             try:
-                web_request = WebRequest(json_loads_byteified(req))
+                web_request = WebRequest(self, json_loads_byteified(req))
             except Exception:
                 logging.exception(
                     "ServerConnection: Error decoding Server Request %s"
